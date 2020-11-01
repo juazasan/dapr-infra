@@ -2,4 +2,7 @@
 deploy-cluster:
 	./deploy-aks.azcli
 
-all: deploy-cluster
+enable-dapr:
+	dapr init --kubernetes
+
+all: deploy-cluster enable-dapr
