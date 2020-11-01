@@ -91,5 +91,8 @@ az aks get-credentials \
 # Setting Azure Files as default storageclass
 
 kubectl patch storageclass default -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
-
 kubectl patch storageclass azurefile -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+# Creating ClusterRoles required
+
+kubectl create clusterrole secret-reader --verb=get --verb=list --verb=watch --resource=secrets

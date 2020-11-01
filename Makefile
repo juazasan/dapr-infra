@@ -9,7 +9,6 @@ deploy-redis:
 	helm repo add bitnami https://charts.bitnami.com/bitnami
 	helm repo update
 	helm install redis bitnami/redis --set cluster.enabled=false -n default
-	kubectl create clusterrole secret-reader --verb=get --verb=list --verb=watch --resource=secrets
 	kubectl create rolebinding default-sa-secrets-read --clusterrole=secret-reader --serviceaccount=default:default --namespace=default
 	kubectl apply -f charts/redis-state.yaml
 	kubectl apply -f charts/redis-pubsub.yaml
