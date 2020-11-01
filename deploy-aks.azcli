@@ -1,0 +1,89 @@
+#!/bin/bash
+
+SUBSCRIPTIONID=$(az account show --query id -o tsv)
+TENANTID=$(az account show --query tenantId -o tsv)
+myIP=$(dig +short myip.opendns.com @resolver1.opendns.com)
+REGION_NAME=eastus
+RESOURCE_GROUP=dapr
+AKS_VNET_NAME=dapr-vnet
+AKS_SUBNET_NAME=dapr-subnet
+AKS_VNET_ADDRESSPACE="10.0.0.0/15"
+AKS_SUBNET_ADDRESSSPACE="10.1.0.0/16"
+AKS_ID=$RANDOM
+AKS_CLUSTER_NAME="daprdev-$AKS_ID"
+AKS_SYSTEMNODE_COUNT=1
+AKS_SYSTEMNODE_MAX_COUNT=3
+AKS_SYSTEMNODE_MIN_COUNT=1
+AKS_SYSTEMNODE_VM_SIZE=Standard_B2ms
+AKS_SYSTEMNODE_OS_DISK_SIZE=64
+AKS_SYSTEMNODE_OS_DISK_TIER=StandardSSD
+ACR_NAME="acr$AKS_ID"
+
+source .local/secrets
+
+# Create resource group
+
+az group create \
+    --name $RESOURCE_GROUP \
+    --location $REGION_NAME
+
+# Create virtual network
+
+az network vnet create \
+    --resource-group $RESOURCE_GROUP \
+    --location $REGION_NAME \
+    --name $AKS_VNET_NAME \
+    --address-prefixes $AKS_VNET_ADDRESSPACE \
+    --subnet-name $AKS_SUBNET_NAME \
+    --subnet-prefix $AKS_SUBNET_ADDRESSSPACE
+
+AKS_SUBNET_ID=$(az network vnet subnet show \
+    --resource-group $RESOURCE_GROUP \
+    --vnet-name $AKS_VNET_NAME \
+    --name $AKS_SUBNET_NAME \
+    --query id -o tsv)
+
+# Provision an ACR
+
+az acr create \
+    --resource-group $RESOURCE_GROUP \
+    --location $REGION_NAME \
+    --name $ACR_NAME \
+    --sku Basic
+
+ACR_ENDPOINT=$(az acr show -g $RESOURCE_GROUP --name $ACR_NAME --query loginServer -o tsv)
+
+# Deploy AKS Cluster using latest supported version
+
+VERSION=$(az aks get-versions \
+    --location $REGION_NAME \
+    --query 'orchestrators[?!isPreview] | [-1].orchestratorVersion' \
+    --output tsv)
+
+az aks create \
+--name $AKS_CLUSTER_NAME \
+--resource-group $RESOURCE_GROUP \
+--location $REGION_NAME \
+--kubernetes-version $VERSION \
+--api-server-authorized-ip-ranges $myIP \
+--enable-managed-identity \
+--enable-addons azure-policy \
+--vm-set-type VirtualMachineScaleSets \
+--node-count $AKS_NODE_COUNT \
+--node-vm-size $AKS_NODE_VM_SIZE \
+--node-osdisk-size $AKS_NODE_OS_DISK_SIZE \
+--load-balancer-sku standard \
+--network-plugin azure \
+--network-policy azure \
+--vnet-subnet-id $AKS_SUBNET_ID \
+--service-cidr 10.255.0.0/16 \
+--dns-service-ip 10.255.0.10 \
+--docker-bridge-address 172.17.0.1/16 \
+--attach-acr $ACR_NAME \
+--generate-ssh-keys
+
+# Configure kubectl
+
+az aks get-credentials \
+    --resource-group $RESOURCE_GROUP \
+    --name $AKS_CLUSTER_NAME
