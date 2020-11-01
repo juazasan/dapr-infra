@@ -7,7 +7,7 @@ spec:
   type: pubsub.redis
   metadata:
   - name: redisHost
-    value: redis-master.dapr-redis.default.svc.cluster.local:6379
+    value: redis-master.dapr-redis.svc.cluster.local:6379
   - name: redisPassword
     secretKeyRef:
       name: redis
