@@ -13,4 +13,7 @@ deploy-redis:
 	kubectl apply -f charts/redis-state.yaml
 	kubectl apply -f charts/redis-pubsub.yaml
 
-all: deploy-cluster enable-dapr deploy-redis
+deploy-zipkin:
+	kubectl apply -f charts/zipkin.yaml
+
+all: deploy-cluster enable-dapr deploy-redis deploy-zipkin

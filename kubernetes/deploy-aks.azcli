@@ -1,25 +1,23 @@
 #!/bin/bash
 
+source .local/secrets
+
 SUBSCRIPTIONID=$(az account show --query id -o tsv)
 TENANTID=$(az account show --query tenantId -o tsv)
 myIP=$(dig +short myip.opendns.com @resolver1.opendns.com)
 REGION_NAME=eastus
-RESOURCE_GROUP=dapr
-AKS_VNET_NAME=dapr-vnet
-AKS_SUBNET_NAME=dapr-subnet
-AKS_VNET_ADDRESSPACE="10.0.0.0/15"
-AKS_SUBNET_ADDRESSSPACE="10.1.0.0/16"
-AKS_ID=$RANDOM
-AKS_CLUSTER_NAME="daprdev-$AKS_ID"
+RESOURCE_GROUP=$AKS_CLUSTER_NAME
+ACR_NAME=$AKS_CLUSTER_NAME
+AKS_VNET_NAME=$AKS_CLUSTER_NAME-vnet
+AKS_SUBNET_NAME=kubernetes
+AKS_VNET_ADDRESSPACE="10.10.0.0/16"
+AKS_SUBNET_ADDRESSSPACE="10.10.224.0/19"
 AKS_SYSTEMNODE_COUNT=1
 AKS_SYSTEMNODE_MAX_COUNT=3
 AKS_SYSTEMNODE_MIN_COUNT=1
-AKS_SYSTEMNODE_VM_SIZE=Standard_B2ms
-AKS_SYSTEMNODE_OS_DISK_SIZE=64
+AKS_SYSTEMNODE_VM_SIZE=Standard_DS3_v2
+AKS_SYSTEMNODE_OS_DISK_SIZE=32
 AKS_SYSTEMNODE_OS_DISK_TIER=StandardSSD
-ACR_NAME="acr$AKS_ID"
-
-source .local/secrets
 
 # Create resource group
 
@@ -66,12 +64,17 @@ az aks create \
 --location $REGION_NAME \
 --kubernetes-version $VERSION \
 --api-server-authorized-ip-ranges $myIP \
+--enable-pod-identity \
 --enable-managed-identity \
 --enable-addons azure-policy \
 --vm-set-type VirtualMachineScaleSets \
+--max-pods 50 \
+--enable-cluster-autoscaler \
 --node-count $AKS_SYSTEMNODE_COUNT \
+--min-count $AKS_SYSTEMNODE_MIN_COUNT \
+--max-count $AKS_SYSTEMNODE_MAX_COUNT \
 --node-vm-size $AKS_SYSTEMNODE_VM_SIZE \
---node-osdisk-size $AKS_SYSTEMNODE_OS_DISK_SIZE \
+--node-osdisk-type Ephemeral \
 --load-balancer-sku standard \
 --network-plugin azure \
 --network-policy azure \
@@ -80,7 +83,8 @@ az aks create \
 --dns-service-ip 10.255.0.10 \
 --docker-bridge-address 172.17.0.1/16 \
 --attach-acr $ACR_NAME \
---generate-ssh-keys
+--generate-ssh-keys \
+--yes
 
 # Configure kubectl
 
@@ -96,3 +100,4 @@ kubectl patch storageclass azurefile -p '{"metadata": {"annotations":{"storagecl
 # Creating ClusterRoles required
 
 kubectl create clusterrole secret-reader --verb=get --verb=list --verb=watch --resource=secrets
+
